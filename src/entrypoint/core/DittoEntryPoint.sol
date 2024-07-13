@@ -4,11 +4,13 @@ pragma solidity ^0.8.23;
 import "../interfaces/IDittoEntryPoint.sol";
 import "./EntryPoint.sol";
 import { PackedUserOperation } from "../../account-abstraction/interfaces/PackedUserOperation.sol";
-import "../../openzeppelin/access/Ownable.sol";
+
 
 // Interface for the DittoEntryPoint DEP contract
-contract DittoEntryPoint is IDittoEntryPoint, Ownable, EntryPoint {
+contract DittoEntryPoint is IDittoEntryPoint, EntryPoint {
     error UnregisteredWorkflow();
+
+    uint192 immutable keyForNonce;
 
     struct WorkflowTemplate {
         bytes workflow;
@@ -18,7 +20,9 @@ contract DittoEntryPoint is IDittoEntryPoint, Ownable, EntryPoint {
     Workflow[] historyWorkflow;
     mapping(uint256 => WorkflowTemplate) workflows;
 
-    constructor() Ownable(msg.sender) {}
+    constructor() {
+        keyForNonce = 4881784126106307312632928626453896532383844662065558978560;
+    }
 
     // Anyone can call
     function addWorkflow(PackedUserOperation[] memory _batch) external returns(uint256 workflowId) {
@@ -28,7 +32,7 @@ contract DittoEntryPoint is IDittoEntryPoint, Ownable, EntryPoint {
     }
 
     // Registers a workflow associated with a vault
-    function registerWorkflow(uint256 workflowId) external onlyOwner {
+    function registerWorkflow(uint256 workflowId) external {
         workflows[workflowId].registered = true;
     }
 
@@ -38,13 +42,13 @@ contract DittoEntryPoint is IDittoEntryPoint, Ownable, EntryPoint {
         if(!template.registered) {
             revert UnregisteredWorkflow();
         }
-        uint256 nonce = getNonce(vaultAddress, 0);
+        uint256 nonce = getNonce(vaultAddress, keyForNonce);
         (PackedUserOperation[] memory workflowBatch) = abi.decode(template.workflow, (PackedUserOperation[]));
-        for (uint i=0; i<template.workflow.length; i++) {
+        for (uint i=0; i<workflowBatch.length; i++) {
             workflowBatch[i].nonce = nonce + i;
             workflowBatch[i].sender = vaultAddress;
         }
-        this.handleOps(workflowBatch, payable(address(0x42)));
+        this.handleOps(workflowBatch, payable(address(0x69)));
         historyWorkflow.push(
             Workflow(
                 vaultAddress,
@@ -54,7 +58,7 @@ contract DittoEntryPoint is IDittoEntryPoint, Ownable, EntryPoint {
     }
     
     // Cancels a workflow and removes it from active workflows
-    function cancelWorkflow(uint256 workflowId) external onlyOwner {
+    function cancelWorkflow(uint256 workflowId) external {
         workflows[workflowId].registered = false;
     }
 
